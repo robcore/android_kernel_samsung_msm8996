@@ -1710,7 +1710,9 @@ int ipa_q6_cleanup(void)
 		BUG();
 	}
 
-	ipa_ctx->q6_proxy_clk_vote_valid = true;
+	/* set proxy vote before decrement */
+	ipa2_proxy_clk_vote();
+	IPA2_ACTIVE_CLIENTS_DEC_SPECIAL("Q6");
 	return 0;
 }
 
