@@ -38,7 +38,7 @@ bb=/tmp/anykernel/tools/busybox;
 
 ui_print "$(file_getprop /tmp/anykernel/anykernel.sh kernel.string)";
 ui_print " ";
-ui_print "AnyKernel2 by osm0sis @ xda-developers";
+ui_print "Installing Kernel, please wait.";
 ui_print " ";
 mount -o ro /system;
 mount /data;
@@ -67,7 +67,7 @@ if [ "$(file_getprop /tmp/anykernel/anykernel.sh do.initd)" == 1 ]; then
   mount -o remount,ro /system;
 fi;
 
-ui_print "Installing kernel...";
+ui_print "Installation status...";
 for i in $($bb --list); do
   $bb ln -s $bb /tmp/anykernel/bin/$i;
 done;
@@ -95,5 +95,5 @@ fi;
 umount /system;
 umount /data;
 ui_print " ";
-ui_print "Done!";
+ui_print "Installation complete. Please clear caches and reboot.";
 

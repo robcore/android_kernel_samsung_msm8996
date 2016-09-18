@@ -18,7 +18,7 @@ DTS_DIR=$BUILDING_DIR/arch/arm64/boot/dts/samsung
 ANYKERNEL_DIR=$ROOT_DIR/anykernel-prebuilt
 TEMP_DIR=$OUT_DIR/temp
 
-DEFCONFIG=$1
+DEFCONFIG=$1/travis_hero2qlte_chnzc_defconfig
 
 FUNC_PRINT()
 {
@@ -60,8 +60,8 @@ FUNC_PACK()
 		mkdir $TEMP_DIR/modules
 		find . -type f -name "*.ko" | xargs cp -t $TEMP_DIR/modules
 		cd $TEMP_DIR
-		zip -r BKernel.zip ./*
-		mv BKernel.zip $OUT_DIR/BKernel.zip
+		zip -r HKernel.zip ./*
+		mv HKernel.zip $OUT_DIR/HKernel.zip
 		cd $ROOT_DIR
 		FUNC_PRINT "Finish Packing"
 }

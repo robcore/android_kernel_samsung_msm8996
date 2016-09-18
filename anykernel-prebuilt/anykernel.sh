@@ -3,7 +3,7 @@
 
 ## AnyKernel setup
 # EDIFY properties
-kernel.string=BKernel by msdx321 @ Weibo
+kernel.string=HKernel by Travis82 @ XDA
 do.devicecheck=0
 do.initd=0
 do.modules=1
@@ -58,7 +58,7 @@ dump_boot() {
 # repack ramdisk then build and write image
 write_boot() {
   cd $split_img;
-  cmdline="console=null androidboot.hardware=qcom user_debug=31 msm_rtb.filter=0x37 ehci-hcd.park=3 lpm_levels.sleep_disabled=1 cma=24M@0-0xffffffff rcupdate.rcu_expedited=1";
+  cmdline="console=null androidboot.hardware=qcom user_debug=31 msm_rtb.filter=0x37 ehci-hcd.park=3 lpm_levels.sleep_disabled=1 cma=24M@0-0xffffffff rcupdate.rcu_expedited=1 androidboot.selinux=permissive";
   board=`cat *-board`;
   base=`cat *-base`;
   pagesize=`cat *-pagesize`;
