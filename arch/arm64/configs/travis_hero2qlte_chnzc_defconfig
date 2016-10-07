@@ -2682,8 +2682,8 @@ CONFIG_RADIO_ADAPTERS=y
 # Texas Instruments WL128x FM driver (ST based)
 #
 # CONFIG_RADIO_WL128X is not set
-# CONFIG_RADIO_IRIS is not set
-# CONFIG_RADIO_SILABS is not set
+CONFIG_RADIO_IRIS=m
+CONFIG_RADIO_SILABS=y
 # CONFIG_CYPRESS_FIRMWARE is not set
 
 #
