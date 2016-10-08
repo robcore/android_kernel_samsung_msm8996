@@ -99,6 +99,7 @@ struct cpuset {
 
 	/* user-configured CPUs and Memory Nodes allow to tasks */
 	cpumask_var_t cpus_allowed;
++	cpumask_var_t cpus_requested;
 	nodemask_t mems_allowed;
 
 	/* effective CPUs and Memory Nodes allow to tasks */
@@ -385,7 +386,7 @@ static void cpuset_update_task_spread_flag(struct cpuset *cs,
 
 static int is_cpuset_subset(const struct cpuset *p, const struct cpuset *q)
 {
-	return	cpumask_subset(p->cpus_allowed, q->cpus_allowed) &&
++	return	cpumask_subset(p->cpus_requested, q->cpus_requested) &&
 		nodes_subset(p->mems_allowed, q->mems_allowed) &&
 		is_cpu_exclusive(p) <= is_cpu_exclusive(q) &&
 		is_mem_exclusive(p) <= is_mem_exclusive(q);
@@ -484,7 +485,7 @@ static int validate_change(struct cpuset *cur, struct cpuset *trial)
 	cpuset_for_each_child(c, css, par) {
 		if ((is_cpu_exclusive(trial) || is_cpu_exclusive(c)) &&
 		    c != cur &&
-		    cpumask_intersects(trial->cpus_allowed, c->cpus_allowed))
+		    cpumask_intersects(trial->cpus_requested, c->cpus_requested))
 			goto out;
 		if ((is_mem_exclusive(trial) || is_mem_exclusive(c)) &&
 		    c != cur &&
@@ -933,7 +934,7 @@ static int update_cpumask(struct cpuset *cs, struct cpuset *trialcs,
 	}
 
 	/* Nothing to do if the cpus didn't change */
-	if (cpumask_equal(cs->cpus_allowed, trialcs->cpus_allowed))
+	if (cpumask_equal(cs->cpus_requested, trialcs->cpus_requested))
 		return 0;
 
 	retval = validate_change(cs, trialcs);
@@ -1731,7 +1732,7 @@ static int cpuset_common_seq_show(struct seq_file *sf, void *v)
 
 	switch (type) {
 	case FILE_CPULIST:
-		s += cpulist_scnprintf(s, count, cs->cpus_allowed);
+		s += cpulist_scnprintf(s, count, cs->cpus_requested);
 		break;
 	case FILE_MEMLIST:
 		s += nodelist_scnprintf(s, count, cs->mems_allowed);
@@ -1931,8 +1932,10 @@ cpuset_css_alloc(struct cgroup_subsys_state *parent_css)
 		return ERR_PTR(-ENOMEM);
 	if (!alloc_cpumask_var(&cs->cpus_allowed, GFP_KERNEL))
 		goto free_cs;
+	if (!alloc_cpumask_var(&cs->cpus_requested, GFP_KERNEL))
+		goto free_allowed;
 	if (!alloc_cpumask_var(&cs->effective_cpus, GFP_KERNEL))
-		goto free_cpus;
+		free_requested;
 
 	set_bit(CS_SCHED_LOAD_BALANCE, &cs->flags);
 	cpumask_clear(cs->cpus_allowed);
@@ -1944,7 +1947,9 @@ cpuset_css_alloc(struct cgroup_subsys_state *parent_css)
 
 	return &cs->css;
 
-free_cpus:
+free_requested:
+	free_cpumask_var(cs->cpus_requested);
+free_allowed:
 	free_cpumask_var(cs->cpus_allowed);
 free_cs:
 	kfree(cs);
@@ -2007,6 +2012,7 @@ static int cpuset_css_online(struct cgroup_subsys_state *css)
 	cs->mems_allowed = parent->mems_allowed;
 	cs->effective_mems = parent->mems_allowed;
 	cpumask_copy(cs->cpus_allowed, parent->cpus_allowed);
+	cpumask_copy(cs->cpus_requested, parent->cpus_requested);
 	cpumask_copy(cs->effective_cpus, parent->cpus_allowed);
 	mutex_unlock(&callback_mutex);
 out_unlock:
@@ -2041,6 +2047,7 @@ static void cpuset_css_free(struct cgroup_subsys_state *css)
 
 	free_cpumask_var(cs->effective_cpus);
 	free_cpumask_var(cs->cpus_allowed);
+	free_cpumask_var(cs->cpus_requested);
 	kfree(cs);
 }
 
@@ -2089,6 +2096,8 @@ int __init cpuset_init(void)
 	if (!alloc_cpumask_var(&top_cpuset.cpus_allowed, GFP_KERNEL))
 		BUG();
 	if (!alloc_cpumask_var(&top_cpuset.effective_cpus, GFP_KERNEL))
+		BUG();
+	if (!alloc_cpumask_var(&top_cpuset.cpus_requested, GFP_KERNEL))
 		BUG();
 
 	cpumask_setall(top_cpuset.cpus_allowed);
@@ -2225,7 +2234,7 @@ retry:
 		goto retry;
 	}
 
-	cpumask_and(&new_cpus, cs->cpus_allowed, parent_cs(cs)->effective_cpus);
+	cpumask_and(&new_cpus, cs->cpus_requested, parent_cs(cs)->effective_cpus);
 	nodes_and(new_mems, cs->mems_allowed, parent_cs(cs)->effective_mems);
 
 	cpus_updated = !cpumask_equal(&new_cpus, cs->effective_cpus);
