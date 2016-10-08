@@ -3994,7 +3994,7 @@ CONFIG_IOMMU_TESTS=y
 #
 # Samsung Debugging Feature
 #
-CONFIG_PM_DEVFREQ=y
+# CONFIG_PM_DEVFREQ is not set
 
 #
 # DEVFREQ Governors
