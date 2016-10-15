@@ -420,8 +420,10 @@ kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
 		return -EBADF;
 	idr_preload(GFP_KERNEL);
 	spin_lock(&process->mem_lock);
+
 	/* Allocate the ID but don't attach the pointer just yet */
 	id = idr_alloc(&process->mem_idr, NULL, 1, 0, GFP_NOWAIT);
+
 	spin_unlock(&process->mem_lock);
 	idr_preload_end();
 
@@ -2337,8 +2339,8 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 		entry->memdesc.size);
 
 	trace_kgsl_mem_map(entry, fd);
-
 	kgsl_mem_entry_commit_process(entry);
+
 	return 0;
 
 unmap:
@@ -3434,13 +3436,16 @@ static unsigned long _gpu_set_svm_region(struct kgsl_process_private *private,
 	ret = kgsl_mmu_set_svm_region(private->pagetable, (uint64_t) addr,
 		(uint64_t) size);
 
-	if (ret != 0)
+	if (ret != 0){
+		printk("kgsl %s %d ret=%d\n",__func__, __LINE__, ret);
 		return ret;
+	}
 
 	entry->memdesc.gpuaddr = (uint64_t) addr;
 
 	ret = kgsl_mmu_map(private->pagetable, &entry->memdesc);
 	if (ret) {
+		printk("kgsl %s %d ret=%d\n",__func__, __LINE__, ret);
 		kgsl_mmu_put_gpuaddr(private->pagetable,
 				&entry->memdesc);
 		return ret;
@@ -3480,8 +3485,10 @@ static unsigned long _cpu_get_unmapped_area(unsigned long bottom,
 
 	addr = vm_unmapped_area(&info);
 
-	if (IS_ERR_VALUE(addr))
+	if (IS_ERR_VALUE(addr)){
+		printk("kgsl %s %d resut:%lu\n", __func__, __LINE__,addr);
 		return addr;
+	}
 
 	err = security_mmap_addr(addr);
 	return err ? err : addr;
@@ -3500,16 +3507,20 @@ static unsigned long _search_range(struct kgsl_process_private *private,
 			(unsigned long) align);
 		if (IS_ERR_VALUE(cpu)) {
 			result = cpu;
+			printk("kgsl %s %d : start %lx end %lx len %lu align %lld  resut:%lu\n", __func__, __LINE__, start, end, len, align, result);
 			break;
 		}
 		/* try to map it on the GPU */
 		result = _gpu_set_svm_region(private, entry, cpu, len);
-		if (!IS_ERR_VALUE(result))
+		if (!IS_ERR_VALUE(result)){
+			//printk("kgsl %s %d : start %lx end %lx cpu %lx len %lu align %lld  resut:%lu\n", __func__, __LINE__, start, end, cpu, len, align, result);
 			break;
+		}
 
 		trace_kgsl_mem_unmapped_area_collision(entry, cpu, len);
 
 		if (cpu <= start) {
+			printk("kgsl %s %d : start %lx end %lx cpu %lx len %lu align %lld  resut:%lu\n", __func__, __LINE__, start, end, cpu, len, align, result);
 			result = -ENOMEM;
 			break;
 		}
@@ -3518,6 +3529,7 @@ static unsigned long _search_range(struct kgsl_process_private *private,
 		gpu = _gpu_find_svm(private, start, cpu, len, align);
 		if (IS_ERR_VALUE(gpu)) {
 			result = gpu;
+			printk("kgsl %s %d : start %lx end %lx cpu %lx len %lu align %lld  resut:%lu\n", __func__, __LINE__, start, end, cpu, len, align, result);
 			break;
 		}
 
@@ -3527,6 +3539,7 @@ static unsigned long _search_range(struct kgsl_process_private *private,
 		/* Break if the recommended GPU address is out of range */
 		if (gpu < start) {
 			result = -ENOMEM;
+			printk("kgsl %s %d : start %lx end %lx cpu %lx gpu %lx len %lu align %lld  resut:%lu\n", __func__, __LINE__, start, end, cpu, gpu, len, align, result);
 			break;
 		}
 
@@ -3571,6 +3584,7 @@ static unsigned long _get_svm_area(struct kgsl_process_private *private,
 
 	if (flags & MAP_FIXED) {
 		/* we must use addr 'hint' or fail */
+		printk("kgsl %s %d : flags: %lu \n", __func__, __LINE__, flags); 
 		return _gpu_set_svm_region(private, entry, hint, len);
 	} else if (hint != 0) {
 		struct vm_area_struct *vma;
@@ -3588,8 +3602,10 @@ static unsigned long _get_svm_area(struct kgsl_process_private *private,
 			result = _gpu_set_svm_region(private, entry, addr, len);
 
 			/* On failure drop down to keep searching */
-			if (!IS_ERR_VALUE(result))
+			if (!IS_ERR_VALUE(result)){
+				printk("kgsl %s %d : result %lu\n", __func__, __LINE__, result); 
 				return result;
+			}
 		}
 	} else {
 		/* no hint, start search at the top and work down */
@@ -3601,8 +3617,10 @@ static unsigned long _get_svm_area(struct kgsl_process_private *private,
 	 * must try to search above it.
 	 */
 	result = _search_range(private, entry, start, addr, len, align);
-	if (IS_ERR_VALUE(result) && hint != 0)
+	if (IS_ERR_VALUE(result) && hint != 0){
+		printk("kgsl %s %d: resut:%lu, hint:%lu \n", __func__, __LINE__,result, hint); 
 		result = _search_range(private, entry, addr, end, len, align);
+	}
 
 	return result;
 }
@@ -3640,10 +3658,13 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 				private->pid, addr, pgoff, len, (int) val);
 	} else {
 		 val = _get_svm_area(private, entry, addr, len, flags);
-		 if (IS_ERR_VALUE(val))
+		 if (IS_ERR_VALUE(val)){
 			KGSL_MEM_ERR(device,
-				"_get_svm_area: pid %d addr %lx pgoff %lx len %ld failed error %d\n",
-				private->pid, addr, pgoff, len, (int) val);
+				"_get_svm_area: pid %d addr %lx pgoff %lx len %ld failed error %d - flags %lu\n",
+				private->pid, addr, pgoff, len, (int) val, flags);
+
+			BUG_ON(1);
+		 }
 	}
 
 put:

@@ -65,19 +65,6 @@ struct msm_vidc_input_crop_payload {
 	unsigned int height;
 };
 
-struct msm_vidc_output_crop_payload {
-	unsigned int size;
-	unsigned int version;
-	unsigned int port_index;
-	unsigned int left;
-	unsigned int top;
-	unsigned int display_width;
-	unsigned int display_height;
-	unsigned int width;
-	unsigned int height;
-};
-
-
 struct msm_vidc_digital_zoom_payload {
 	unsigned int size;
 	unsigned int version;
@@ -180,9 +167,6 @@ enum msm_vidc_extradata_type {
 	MSM_VIDC_EXTRADATA_VQZIP_SEI = 0x00000011,
 	MSM_VIDC_EXTRADATA_ROI_QP = 0x00000013,
 	MSM_VIDC_EXTRADATA_INPUT_CROP = 0x0700000E,
-#define MSM_VIDC_EXTRADATA_OUTPUT_CROP \
-	MSM_VIDC_EXTRADATA_OUTPUT_CROP
-	MSM_VIDC_EXTRADATA_OUTPUT_CROP = 0x0700000F,
 	MSM_VIDC_EXTRADATA_DIGITAL_ZOOM = 0x07000010,
 	MSM_VIDC_EXTRADATA_MULTISLICE_INFO = 0x7F100000,
 	MSM_VIDC_EXTRADATA_NUM_CONCEALED_MB = 0x7F100001,
@@ -200,15 +184,6 @@ enum msm_vidc_interlace_type {
 	MSM_VIDC_INTERLACE_FRAME_TOPFIELDFIRST = 0x08,
 	MSM_VIDC_INTERLACE_FRAME_BOTTOMFIELDFIRST = 0x10,
 };
-
-/* enum msm_vidc_framepack_type */
-#define MSM_VIDC_FRAMEPACK_CHECKERBOARD 0x00
-#define MSM_VIDC_FRAMEPACK_COLUMN_INTERLEAVE 0x01
-#define MSM_VIDC_FRAMEPACK_ROW_INTERLEAVE 0x02
-#define MSM_VIDC_FRAMEPACK_SIDE_BY_SIDE 0x03
-#define MSM_VIDC_FRAMEPACK_TOP_BOTTOM 0x04
-#define MSM_VIDC_FRAMEPACK_TEMPORAL_INTERLEAVE 0x05
-
 enum msm_vidc_recovery_sei {
 	MSM_VIDC_FRAME_RECONSTRUCTION_INCORRECT = 0x0,
 	MSM_VIDC_FRAME_RECONSTRUCTION_CORRECT = 0x01,

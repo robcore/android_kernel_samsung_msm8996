@@ -1241,6 +1241,7 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 		mutex_lock(&device->mutex);
 		ret = kgsl_active_count_get(device);
 		if (!ret) {
+			printk("kgsl %s %d ret=%d\n",__func__, __LINE__, ret);
 			_iommu_sync_mmu_pc(device, true);
 			mapped = iommu_map_sg(iommu_pt->domain, addr,
 					memdesc->sgt->sgl, memdesc->sgt->nents,
@@ -1265,6 +1266,7 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 
 	ret = _iommu_add_guard_page(pt, memdesc, addr + size, flags);
 	if (ret) {
+		printk("kgsl %s %d ret=%d\n",__func__, __LINE__, ret);
 		/* cleanup the partial mapping */
 		_iommu_sync_mmu_pc(device, true);
 		iommu_unmap(iommu_pt->domain, addr, size);
@@ -1558,8 +1560,10 @@ static int _insert_gpuaddr(struct kgsl_pagetable *pagetable,
 	struct kgsl_iommu_addr_entry *new =
 		kmem_cache_alloc(addr_entry_cache, GFP_ATOMIC);
 
-	if (new == NULL)
+	if (new == NULL){
+		printk("kgsl %s %d cache_alloc_fail",__func__, __LINE__);
 		return -ENOMEM;
+	}
 
 	new->base = gpuaddr;
 	new->size = size;
@@ -1739,8 +1743,10 @@ static int kgsl_iommu_set_svm_region(struct kgsl_pagetable *pagetable,
 	struct rb_node *node;
 
 	/* Make sure the requested address doesn't fall in the global range */
-	if (ADDR_IN_GLOBAL(gpuaddr) || ADDR_IN_GLOBAL(gpuaddr + size))
+	if (ADDR_IN_GLOBAL(gpuaddr) || ADDR_IN_GLOBAL(gpuaddr + size)){
+		printk("kgsl %s %d ret=%d\n",__func__, __LINE__, ret);
 		return -ENOMEM;
+	}
 
 	spin_lock(&pagetable->lock);
 	node = pt->rbtree.rb_node;
@@ -1762,6 +1768,9 @@ static int kgsl_iommu_set_svm_region(struct kgsl_pagetable *pagetable,
 	}
 
 	ret = _insert_gpuaddr(pagetable, gpuaddr, size);
+	if(ret != 0 ){
+		printk("kgsl %s %d ret=%d\n",__func__, __LINE__, ret);
+	}
 out:
 	spin_unlock(&pagetable->lock);
 	return ret;

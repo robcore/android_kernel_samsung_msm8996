@@ -3,7 +3,7 @@
  * drivers/staging/android/ion/ion.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -298,8 +298,6 @@ static void _ion_buffer_destroy(struct kref *kref)
 	struct ion_heap *heap = buffer->heap;
 	struct ion_device *dev = buffer->dev;
 
-	msm_dma_buf_freed(buffer);
-
 	mutex_lock(&dev->buffer_lock);
 	rb_erase(&buffer->node, &dev->buffers);
 	mutex_unlock(&dev->buffer_lock);
@@ -317,7 +315,11 @@ static void ion_buffer_get(struct ion_buffer *buffer)
 
 static int ion_buffer_put(struct ion_buffer *buffer)
 {
-	return kref_put(&buffer->ref, _ion_buffer_destroy);
+	int ret = kref_put(&buffer->ref, _ion_buffer_destroy);
+
+	if (ret)
+		msm_dma_buf_freed(buffer);
+	return ret;
 }
 
 static void ion_buffer_add_to_handle(struct ion_buffer *buffer)
@@ -1891,14 +1893,15 @@ static int debug_shrink_set(void *data, u64 val)
 	int objs;
 
 	sc.gfp_mask = -1;
-	sc.nr_to_scan = val;
+	sc.nr_to_scan = 0;
 
-	if (!val) {
-		objs = heap->shrinker.count_objects(&heap->shrinker, &sc);
-		sc.nr_to_scan = objs;
-	}
+	if (!val)
+		return 0;
 
-	heap->shrinker.scan_objects(&heap->shrinker, &sc);
+	objs = heap->shrinker.shrink(&heap->shrinker, &sc);
+	sc.nr_to_scan = objs;
+
+	heap->shrinker.shrink(&heap->shrinker, &sc);
 	return 0;
 }
 
@@ -1911,14 +1914,13 @@ static int debug_shrink_get(void *data, u64 *val)
 	sc.gfp_mask = -1;
 	sc.nr_to_scan = 0;
 
-	objs = heap->shrinker.count_objects(&heap->shrinker, &sc);
+	objs = heap->shrinker.shrink(&heap->shrinker, &sc);
 	*val = objs;
 	return 0;
 }
 
 DEFINE_SIMPLE_ATTRIBUTE(debug_shrink_fops, debug_shrink_get,
 			debug_shrink_set, "%llu\n");
-
 #endif
 
 void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
@@ -1958,7 +1960,7 @@ void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 	}
 
 #ifdef DEBUG_HEAP_SHRINKER
-	if (heap->shrinker.count_objects && heap->shrinker.scan_objects) {
+	if (heap->shrinker.shrink) {
 		char debug_name[64];
 
 		snprintf(debug_name, 64, "%s_shrink", heap->name);
@@ -1977,11 +1979,10 @@ void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 	up_write(&dev->lock);
 }
 
-int ion_walk_heaps(struct ion_client *client, int heap_id,
-			enum ion_heap_type type, void *data,
+int ion_walk_heaps(struct ion_client *client, int heap_id, void *data,
 			int (*f)(struct ion_heap *heap, void *data))
 {
-	int ret_val = 0;
+	int ret_val = -EINVAL;
 	struct ion_heap *heap;
 	struct ion_device *dev = client->dev;
 	/*
@@ -1990,8 +1991,7 @@ int ion_walk_heaps(struct ion_client *client, int heap_id,
 	 */
 	down_write(&dev->lock);
 	plist_for_each_entry(heap, &dev->heaps, node) {
-		if (ION_HEAP(heap->id) != heap_id ||
-			type != heap->type)
+		if (ION_HEAP(heap->id) != heap_id)
 			continue;
 		ret_val = f(heap, data);
 		break;

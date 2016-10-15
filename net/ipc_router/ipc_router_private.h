@@ -138,4 +138,10 @@ void *msm_ipc_load_default_node(void);
 
 void msm_ipc_unload_default_node(void *pil);
 
+/**
+ * ipc_router_dummy_write_space() - Dummy write space available callback
+ * @sk:	Socket pointer for which the callback is called.
+ */
+void ipc_router_dummy_write_space(struct sock *sk);
+
 #endif

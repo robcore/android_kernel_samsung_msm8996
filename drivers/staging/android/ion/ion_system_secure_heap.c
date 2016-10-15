@@ -160,7 +160,7 @@ static void ion_system_secure_heap_unmap_dma(struct ion_heap *heap,
 						struct ion_system_secure_heap,
 						heap);
 
-	secure_heap->sys_heap->ops->unmap_dma(secure_heap->sys_heap,
+	secure_heap->sys_heap->ops->map_dma(secure_heap->sys_heap,
 							buffer);
 }
 
@@ -217,6 +217,7 @@ struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *unused)
 		return ERR_PTR(-ENOMEM);
 	heap->heap.ops = &system_secure_heap_ops;
 	heap->heap.type = ION_HEAP_TYPE_SYSTEM_SECURE;
+	heap->heap.flags = ION_HEAP_FLAG_DEFER_FREE;
 	heap->sys_heap = get_ion_heap(ION_SYSTEM_HEAP_ID);
 	return &heap->heap;
 }

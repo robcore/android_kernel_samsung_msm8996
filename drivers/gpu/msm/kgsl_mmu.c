@@ -743,6 +743,7 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 	ret = pagetable->pt_ops->mmu_map(pagetable, memdesc);
 
 	if (ret == 0) {
+		//printk("kgsl %s %d ret=%d\n",__func__, __LINE__, ret);
 		KGSL_STATS_ADD(size, &pagetable->stats.mapped,
 			&pagetable->stats.max_mapped);
 
