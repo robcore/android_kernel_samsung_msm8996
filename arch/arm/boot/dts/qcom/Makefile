@@ -78,10 +78,13 @@ dtb-$(CONFIG_ARCH_MSMTHORIUM) += msmthorium-rumi.dtb
 dtb-$(CONFIG_ARCH_MSMTITANIUM) += msmtitanium-sim.dtb \
 	msmtitanium-rumi.dtb
 
-dtb-$(CONFIG_ARCH_MDMFERMIUM) += mdmfermium-rumi.dtb \
-	mdmfermium-cdp.dtb \
-	mdmfermium-mtp.dtb \
-	mdmfermium-rcm.dtb
+dtb-$(CONFIG_ARCH_MSM8920) += msm8920-pmi8937-cdp.dtb \
+	msm8920-pmi8937-mtp.dtb \
+	msm8920-pmi8950-cdp.dtb \
+	msm8920-pmi8950-mtp.dtb \
+	msm8920-pmi8937-rcm.dtb \
+	msm8920-pmi8950-rcm.dtb \
+	msm8920-pmi8940-qrd-sku7.dtb
 
 dtb-$(CONFIG_ARCH_MSM8916) += msm8952-qrd-skum.dtb \
        msm8952-cdp.dtb \
