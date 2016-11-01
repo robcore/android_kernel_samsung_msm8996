@@ -38,6 +38,8 @@ static void *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
 		if (msm_ion_heap_high_order_page_zero(page, pool->order))
 			goto error_free_pages;
 
+	ion_page_pool_alloc_set_cache_policy(pool, page);
+
 	return page;
 error_free_pages:
 	__free_pages(page, pool->order);
@@ -47,6 +49,7 @@ error_free_pages:
 static void ion_page_pool_free_pages(struct ion_page_pool *pool,
 				     struct page *page)
 {
+	ion_page_pool_free_set_cache_policy(pool, page);
 	__free_pages(page, pool->order);
 }
 
@@ -104,6 +107,26 @@ void *ion_page_pool_alloc(struct ion_page_pool *pool, bool *from_pool)
 	return page;
 }
 
+/*
+ * Tries to allocate from only the specified Pool and returns NULL otherwise
+ */
+void *ion_page_pool_alloc_pool_only(struct ion_page_pool *pool)
+{
+	struct page *page = NULL;
+
+	BUG_ON(!pool);
+
+	if (mutex_trylock(&pool->mutex)) {
+		if (pool->high_count)
+			page = ion_page_pool_remove(pool, true);
+		else if (pool->low_count)
+			page = ion_page_pool_remove(pool, false);
+		mutex_unlock(&pool->mutex);
+	}
+
+	return page;
+}
+
 void ion_page_pool_free(struct ion_page_pool *pool, struct page *page)
 {
 	int ret;
@@ -113,6 +136,11 @@ void ion_page_pool_free(struct ion_page_pool *pool, struct page *page)
 	ret = ion_page_pool_add(pool, page);
 	if (ret)
 		ion_page_pool_free_pages(pool, page);
+}
+
+void ion_page_pool_free_immediate(struct ion_page_pool *pool, struct page *page)
+{
+	ion_page_pool_free_pages(pool, page);
 }
 
 static int ion_page_pool_total(struct ion_page_pool *pool, bool high)
@@ -128,7 +156,7 @@ static int ion_page_pool_total(struct ion_page_pool *pool, bool high)
 int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 				int nr_to_scan)
 {
-	int i;
+	int freed;
 	bool high;
 
 	if (current_is_kswapd())
@@ -136,7 +164,10 @@ int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 	else
 		high = !!(gfp_mask & __GFP_HIGHMEM);
 
-	for (i = 0; i < nr_to_scan; i++) {
+	if (nr_to_scan == 0)
+		return ion_page_pool_total(pool, high);
+
+	for (freed = 0; freed < nr_to_scan; freed++) {
 		struct page *page;
 
 		mutex_lock(&pool->mutex);
@@ -152,7 +183,7 @@ int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 		ion_page_pool_free_pages(pool, page);
 	}
 
-	return ion_page_pool_total(pool, high);
+	return freed;
 }
 
 struct ion_page_pool *ion_page_pool_create(gfp_t gfp_mask, unsigned int order)
