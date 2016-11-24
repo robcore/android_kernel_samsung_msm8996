@@ -442,6 +442,7 @@ struct smb1351_charger {
 	int			fastchg_current_max_ma;
 	int			workaround_flags;
 
+	struct mutex		parallel_config_lock;
 	int			parallel_pin_polarity_setting;
 	bool			parallel_charger;
 	bool			parallel_charger_present;
@@ -1498,7 +1499,12 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 			rc = smb1351_usb_suspend(chip, USER, !val->intval);
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
+		mutex_lock(&chip->parallel_config_lock);
 		rc = smb1351_parallel_set_chg_present(chip, val->intval);
+		if (rc)
+			pr_err("Set charger %spresent failed\n",
+					val->intval ? "" : "un-");
+		mutex_unlock(&chip->parallel_config_lock);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		if (chip->parallel_charger_present) {
@@ -2990,6 +2996,7 @@ static int smb1351_parallel_charger_probe(struct i2c_client *client,
 				EN_BY_PIN_HIGH_ENABLE : EN_BY_PIN_LOW_ENABLE;
 
 	i2c_set_clientdata(client, chip);
+	mutex_init(&chip->parallel_config_lock);
 
 	chip->parallel_psy.name		= "usb-parallel";
 	chip->parallel_psy.type		= POWER_SUPPLY_TYPE_USB_PARALLEL;
@@ -3015,6 +3022,13 @@ static int smb1351_parallel_charger_probe(struct i2c_client *client,
 	pr_info("smb1351 parallel successfully probed.\n");
 
 	return 0;
+
+fail_register_psy:
+	wakeup_source_trash(&chip->smb1351_ws.source);
+	mutex_destroy(&chip->irq_complete);
+	mutex_destroy(&chip->fcc_lock);
+	mutex_destroy(&chip->parallel_config_lock);
+	return rc;
 }
 
 static int smb1351_charger_probe(struct i2c_client *client,
@@ -3034,6 +3048,11 @@ static int smb1351_charger_remove(struct i2c_client *client)
 	power_supply_unregister(&chip->batt_psy);
 
 	mutex_destroy(&chip->irq_complete);
+	mutex_destroy(&chip->fcc_lock);
+	if (is_parallel_slave(client)) {
+		mutex_destroy(&chip->parallel_config_lock);
+		mutex_destroy(&chip->parallel.lock);
+	}
 	debugfs_remove_recursive(chip->debug_root);
 	return 0;
 }
